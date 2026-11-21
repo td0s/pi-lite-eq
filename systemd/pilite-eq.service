@@ -1,0 +1,16 @@
+[Unit]
+Description=Pi-Lite EQ meter
+After=sound.target
+
+[Service]
+User=@USER@
+WorkingDirectory=@DIR@
+# Put extra options (e.g. PILITE_EQ_ARGS="--flip-x --range 35") in this file:
+EnvironmentFile=-/etc/default/pilite-eq
+ExecStart=/usr/bin/python3 -m pilite_eq $PILITE_EQ_ARGS
+# The USB mic can appear a few seconds after boot; just try again.
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
