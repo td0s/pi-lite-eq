@@ -29,13 +29,12 @@ USB mic ─► arecord ─► FFT (numpy) ─► 14 log-spaced bands, 60 Hz–10
 ## 1. Free up the serial port (Pi 3, Ubuntu)
 
 On a Pi 3, Bluetooth uses the good UART, and the header pins get the "mini
-UART", whose speed drifts with the CPU clock. Ubuntu also puts a login console
-on the port. Both need changing. Take a copy of the two boot files first, in
-case the Pi doesn't come back up:
+UART", whose speed drifts with the CPU clock. The Pi may also have a login
+console on the port. Take a copy of `config.txt` first, in case the Pi doesn't
+come back up:
 
 ```sh
-sudo cp /boot/firmware/config.txt  /boot/firmware/config.txt.bak
-sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
+sudo cp /boot/firmware/config.txt /boot/firmware/config.txt.bak
 ```
 
 1. **Give the header the good UART** by turning off Bluetooth. Add these lines
@@ -52,29 +51,36 @@ sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
    the USB ports and Ethernet). Several `dtoverlay=` lines can sit side by
    side. If `enable_uart=1` is already in the file, you can leave it out.
    (Use `dtoverlay=miniuart-bt` instead if something on the Pi needs Bluetooth.)
-2. **Remove the serial console.** `/boot/firmware/cmdline.txt` is one long
-   line. Delete just the `console=serial0,115200` part (leave `console=tty1`
-   and the rest alone):
-   ```sh
-   sudo sed -i 's/console=serial0,[0-9]* //' /boot/firmware/cmdline.txt
-   cat /boot/firmware/cmdline.txt    # check: still one line, no serial0
-   ```
-3. Stop Bluetooth trying to use the port (these may say "not found", which is
-   fine):
+2. **Check for a serial console.** `cat /proc/cmdline` shows how the Pi
+   booted. Look for a `console=` setting naming a serial port:
+   - `console=ttyS0,115200`, or none: **nothing to do.** After step 1 the
+     Pi-Lite is on `ttyAMA0`, and `ttyS0` is no longer wired to the header
+     pins.
+   - `console=serial0,…` or `console=ttyAMA0,…`: that console would talk over
+     the Pi-Lite. Remove just that part from `/boot/firmware/cmdline.txt`
+     (one long line; back it up first and leave the rest alone):
+     ```sh
+     sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
+     sudo sed -i -E 's/console=(serial0|ttyAMA0),[0-9]* //' /boot/firmware/cmdline.txt
+     ```
+   **Don't create `cmdline.txt` if it isn't there.** A new file replaces the
+   Pi's boot settings and can stop it booting.
+3. Stop Bluetooth and any login prompt using the serial ports (these may say
+   "not found", which is fine):
    ```sh
    sudo systemctl disable hciuart
-   sudo systemctl disable serial-getty@ttyAMA0 serial-getty@ttyS0
+   sudo systemctl mask serial-getty@ttyAMA0 serial-getty@ttyS0
    ```
 4. Reboot, then check:
    ```sh
    ls -l /dev/ttyAMA0 /dev/serial0     # serial0 may not exist on Ubuntu; that's OK
-   systemctl status serial-getty@ttyAMA0  # should be inactive
+   cat /proc/cmdline                   # no console= on serial0 or ttyAMA0
    ```
 
 The meter uses `/dev/serial0` if it exists, otherwise `/dev/ttyAMA0`.
 
 If the Pi won't boot after this, put the SD card in another computer and copy
-the `.bak` files back over the originals (they're on the `system-boot`
+the `.bak` file(s) back over the originals (they're on the `system-boot`
 partition).
 
 Your user needs to be in the `dialout` (serial) and `audio` groups. Ubuntu's
