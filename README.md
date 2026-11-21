@@ -48,6 +48,9 @@ sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
    If the top of `config.txt` says not to edit it and to use `usercfg.txt`
    instead (older Ubuntu releases), put the lines in
    `/boot/firmware/usercfg.txt`.
+   Keep the lines already there, such as `dtoverlay=dwc2` (Ubuntu needs it for
+   the USB ports and Ethernet). Several `dtoverlay=` lines can sit side by
+   side. If `enable_uart=1` is already in the file, you can leave it out.
    (Use `dtoverlay=miniuart-bt` instead if something on the Pi needs Bluetooth.)
 2. **Remove the serial console.** `/boot/firmware/cmdline.txt` is one long
    line. Delete just the `console=serial0,115200` part (leave `console=tty1`
