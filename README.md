@@ -1,7 +1,8 @@
 # Pi-Lite EQ meter
 
 A 14-band EQ meter (spectrum analyser) on a Ciseco **Pi-Lite** 9×14 LED board,
-listening through a USB microphone on a **Raspberry Pi 3 Model B**.
+listening through a USB microphone on a **Raspberry Pi 3 Model B** running
+**Ubuntu**.
 
 The music plays on an Echo (through the Music Assistant Alexa skill), so the Pi
 never has the audio itself. A USB mic next to the Echo lets the Pi hear exactly
@@ -25,31 +26,62 @@ USB mic ─► arecord ─► FFT (numpy) ─► 14 log-spaced bands, 60 Hz–10
 - Any USB microphone or USB sound card with a mic. The Pi has no audio input of
   its own. Check that it still fits in a USB port with the Pi-Lite fitted.
 
-## 1. Free up the serial port (Pi 3)
+## 1. Free up the serial port (Pi 3, Ubuntu)
 
 On a Pi 3, Bluetooth uses the good UART, and the header pins get the "mini
-UART", whose speed drifts with the CPU clock. The Pi's login console also uses
-the port. Both need changing:
+UART", whose speed drifts with the CPU clock. Ubuntu also puts a login console
+on the port. Both need changing. Take a copy of the two boot files first, in
+case the Pi doesn't come back up:
 
-1. `sudo raspi-config` → **Interface Options** → **Serial Port**:
-   - "login shell over serial?" → **No**
-   - "serial port hardware enabled?" → **Yes**
-2. Give the header the good UART by turning off Bluetooth. Add this line at the
-   end of `/boot/firmware/config.txt` (on older Raspberry Pi OS:
-   `/boot/config.txt`):
+```sh
+sudo cp /boot/firmware/config.txt  /boot/firmware/config.txt.bak
+sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
+```
+
+1. **Give the header the good UART** by turning off Bluetooth. Add these lines
+   at the end of `/boot/firmware/config.txt`:
    ```
+   [all]
+   enable_uart=1
    dtoverlay=disable-bt
    ```
-   then run `sudo systemctl disable hciuart`.
+   If the top of `config.txt` says not to edit it and to use `usercfg.txt`
+   instead (older Ubuntu releases), put the lines in
+   `/boot/firmware/usercfg.txt`.
    (Use `dtoverlay=miniuart-bt` instead if something on the Pi needs Bluetooth.)
-3. Reboot, then check that `ls -l /dev/serial0` points at `ttyAMA0`.
+2. **Remove the serial console.** `/boot/firmware/cmdline.txt` is one long
+   line. Delete just the `console=serial0,115200` part (leave `console=tty1`
+   and the rest alone):
+   ```sh
+   sudo sed -i 's/console=serial0,[0-9]* //' /boot/firmware/cmdline.txt
+   cat /boot/firmware/cmdline.txt    # check: still one line, no serial0
+   ```
+3. Stop Bluetooth trying to use the port (these may say "not found", which is
+   fine):
+   ```sh
+   sudo systemctl disable hciuart
+   sudo systemctl disable serial-getty@ttyAMA0 serial-getty@ttyS0
+   ```
+4. Reboot, then check:
+   ```sh
+   ls -l /dev/ttyAMA0 /dev/serial0     # serial0 may not exist on Ubuntu; that's OK
+   systemctl status serial-getty@ttyAMA0  # should be inactive
+   ```
 
-Your user needs to be in the `dialout` and `audio` groups (the default user
-on Raspberry Pi OS already is): `groups` shows them.
+The meter uses `/dev/serial0` if it exists, otherwise `/dev/ttyAMA0`.
+
+If the Pi won't boot after this, put the SD card in another computer and copy
+the `.bak` files back over the originals (they're on the `system-boot`
+partition).
+
+Your user needs to be in the `dialout` (serial) and `audio` groups. Ubuntu's
+default `ubuntu` user already is: `groups` shows them. Otherwise:
+`sudo usermod -aG dialout,audio $USER`, then log out and back in.
 
 ## 2. Check the mic
 
 ```sh
+sudo apt-get install -y alsa-utils
 arecord -l                                     # the USB mic should be listed
 arecord -D plughw:CARD=Device,DEV=0 -d 5 -f S16_LE -r 22050 test.wav
 alsamixer -c Device                            # F4 = capture level
@@ -57,6 +89,14 @@ alsamixer -c Device                            # F4 = capture level
 
 Use the card name `arecord -l` shows in place of `Device`. The meter picks the
 first USB capture card on its own, or use `--device`.
+
+If `arecord -l` lists nothing with the mic plugged in, Ubuntu may be missing
+the USB audio driver, which on some releases is in a separate package:
+
+```sh
+sudo apt-get install -y linux-modules-extra-raspi
+sudo reboot
+```
 
 ## 3. Get the code onto the Pi and try it
 
@@ -108,7 +148,7 @@ hand, since only one program can use the serial port.
 | `--order`, `--flip-x`, `--flip-y` | cols | Board orientation (see the test). |
 | `--settle` | 0 | Extra pause after each frame, if the board garbles updates. |
 | `--device` | first USB mic | ALSA capture device. |
-| `--port` | /dev/serial0 | Serial port. |
+| `--port` | /dev/serial0, else /dev/ttyAMA0 | Serial port. |
 | `--sim`, `--wav FILE` | | Terminal display / analyse a WAV file instead of the mic. |
 
 ## Pi-Lite command reference

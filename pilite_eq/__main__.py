@@ -22,7 +22,7 @@ N_FFT = 2048
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(prog="pilite_eq", description="14-band EQ meter on a Pi-Lite")
-    p.add_argument("--port", default="/dev/serial0", help="serial port (default /dev/serial0)")
+    p.add_argument("--port", help="serial port (default /dev/serial0, else /dev/ttyAMA0)")
     p.add_argument("--device", help="ALSA capture device (default: first USB mic found)")
     p.add_argument("--rate", type=int, default=22050, help="mic sample rate (default 22050)")
     p.add_argument("--fmin", type=float, default=60.0, help="lowest band edge, Hz")

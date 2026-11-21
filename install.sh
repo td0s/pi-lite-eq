@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install the Pi-Lite EQ meter as a service on Raspberry Pi OS.
+# Install the Pi-Lite EQ meter as a service (Ubuntu or Raspberry Pi OS).
 # Run from the project folder: ./install.sh
 set -e
 cd "$(dirname "$0")"

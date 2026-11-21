@@ -15,6 +15,7 @@ not documented anywhere we could reach, so both are settings (see --test).
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Sequence
 
@@ -23,6 +24,16 @@ ROWS = 9
 BAUD = 9600
 
 Grid = Sequence[Sequence[bool]]  # grid[row][col], row 0 = top, col 0 = left
+
+
+def default_port() -> str:
+    """/dev/serial0 is the header UART's alias on Raspberry Pi OS; some
+    distros (e.g. Ubuntu) may not create it, so fall back to the PL011."""
+    for port in ("/dev/serial0", "/dev/ttyAMA0"):
+        if os.path.exists(port):
+            return port
+    raise SystemExit("No serial port found (/dev/serial0 or /dev/ttyAMA0). "
+                     "See 'Free up the serial port' in the README, or use --port.")
 
 
 def command(cmd: str) -> bytes:
@@ -59,11 +70,11 @@ class PiLite:
     the UART, so callers are paced by the 9600-baud link (~960 bytes/s) rather
     than piling up lag in the kernel buffer."""
 
-    def __init__(self, port: str = "/dev/serial0", order: str = "cols",
+    def __init__(self, port: str | None = None, order: str = "cols",
                  flip_x: bool = False, flip_y: bool = False, settle: float = 0.0):
         import serial  # pyserial; imported here so tests don't need it
 
-        self.ser = serial.Serial(port, BAUD, timeout=0)
+        self.ser = serial.Serial(port or default_port(), BAUD, timeout=0)
         self.order, self.flip_x, self.flip_y = order, flip_x, flip_y
         self.settle = settle  # extra pause after each command, if the board lags
 
